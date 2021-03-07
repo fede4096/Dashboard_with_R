@@ -35,6 +35,12 @@ If you want to copy & paste the code and reproduce or change the Dashboard on yo
 Instead, if you just want to visualize the Dashboard, you don't need to install them, because the application is hosted on [Shiny Apps](https://www.shinyapps.io), a platform providing R servers.
 
 ## Achievement
+The Dashboard has 4 pages:
+
+1. **Exploratory Data Analysis**: frequency distributions and cluster analysis
+2. **Results of Churn Analysis**: comparison between 6 classifiers in terms of their performance on test set
+3. **Dataset**
+4. **Technical Notes**
 
 
 
