@@ -4,7 +4,7 @@ A Dashboard is a tool used for information management and business intelligence.
 
 ## Target
 
-The aim of this repository is to show the potentiality of R statistical software in deploying a Dashboard about a business problem.
+The aim of this repository is to show the potentiality of R statistical software in deploying a Dashboard about a real business problem.
 
 ## Data Source: https://www.kaggle.com/blastchar/telco-customer-churn
 "Predict behavior to retain customers. You can analyze all relevant customer data and develop focused customer retention programs." [IBM Sample Data Sets].
