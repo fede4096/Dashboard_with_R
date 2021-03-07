@@ -2,8 +2,8 @@
 "Predict behavior to retain customers. You can analyze all relevant customer data and develop focused customer retention programs." [IBM Sample Data Sets].
 
 Customer churn, also known as customer attrition, occurs when customers stop doing business with a company or stop using a company’s services. By being aware of and monitoring churn rate, companies are equipped to determine their customer retention success rates and identify strategies for improvement. 
-## DATA SOURCE: https://www.kaggle.com/blastchar/telco-customer-churn
-## Content
+## Data source: https://www.kaggle.com/blastchar/telco-customer-churn
+## Data Content
 Each row represents a customer, each column contains customer’s attributes.
 
 The data set includes information about:
