@@ -39,10 +39,8 @@ The Dashboard has 4 pages:
 
 1. **Exploratory Data Analysis**: frequency distributions and cluster analysis.
 2. **Results of Churn Analysis**: comparison between 6 classifiers in terms of their performance on test set.
-3. **Dataset**
-4. **Technical Notes**
-
-
+3. **Dataset**, pre-processed and cleaned.
+4. **Technical Notes**, for a better understanding of measures used within the analysis.
 
 
 
