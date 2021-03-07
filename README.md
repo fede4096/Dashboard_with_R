@@ -15,7 +15,7 @@ Each row represents a customer, each column contains customer’s attributes.
 
 The data set includes information about:
 
-1. Customers who left within the last month – the column is called Churn
+1. Customers who left within the last month – the column is called **Churn**
 2. Services that each customer has signed up for – phone, multiple lines, internet, online security, online backup, device protection, tech support, and streaming TV and movies
 3. Customer account information – how long they’ve been a customer, contract, payment method, paperless billing, monthly charges, and total charges
 4. Demographic info about customers – gender, age range, and if they have partners and dependents
@@ -37,8 +37,8 @@ Instead, if you just want to visualize the Dashboard, you don't need to install 
 ## Achievement
 The Dashboard has 4 pages:
 
-1. **Exploratory Data Analysis**: frequency distributions and cluster analysis
-2. **Results of Churn Analysis**: comparison between 6 classifiers in terms of their performance on test set
+1. **Exploratory Data Analysis**: frequency distributions and cluster analysis.
+2. **Results of Churn Analysis**: comparison between 6 classifiers in terms of their performance on test set.
 3. **Dataset**
 4. **Technical Notes**
 
