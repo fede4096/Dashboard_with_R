@@ -1,0 +1,957 @@
+---
+title: "Telco Customers Churn"
+output:
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    social: menu
+    vertical_layout: fill
+    theme: cosmo
+    css: extra.css                       #file in css esterno per aggiustare la dimensione di alcuni output
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+
+# Caricamento pacchetti utili
+
+library(shiny)                             # per input interattivi e funzioni render
+library(shinydashboard)
+library(flexdashboard)
+library(tidyverse)                         # per la manipolazione dati
+library(ggthemes)
+library(plotly)                            # per produrre i grafici
+library(ggcorrplot)                        # per il calcolo delle correlazioni
+library(extrafont)                         # per scaricare font
+loadfonts()                                # per caricare i font
+library(scales)
+library(vcd)                               # per il calcolo delle associazioni
+library(reshape2)               
+library(knitr)                             # per formattare le tabelle
+library(kableExtra)
+library(DT)                                # per produrre la tabella dei dati
+library(clustMixType)                      # per la cluster analysis
+
+# Caricamento dati dalla Directory di lavoro
+
+telco <- read.csv("telco_cleaned.csv", stringsAsFactors = T)
+telco <- telco[, -1]                  # eliminazione colonna superflua
+
+```
+
+# Studio delle variabili {data-icon="fa-bar-chart" data-navmenu="Analisi Esplorativa" data-orientation=rows}
+
+## Column {.sidebar}
+
+Il dataset [Telco Customers Churn](#dataset) contiene informazioni riguardo l'abbandono (Churn) dei clienti di un'azienda di telecomunicazioni. In totale, ci sono 20 variabili, 19 delle quali saranno considerate come esplicative e suddivise in 3 gruppi.
+Di seguito è possile studiarne la __distribuzione__ singola o condizionata al Churn (premendo sul tasto).
+
+```{r first_sidebar}
+
+# Input utente per plottare le distribuzioni
+selectInput("gruppovar", "Selezionare un gruppo di variabili:", choices = c("Demografico", "Servizi", "Account"))
+
+# Input utente: tasto per distribuzione congiunta
+checkboxInput("churn", "Churn", value = FALSE)
+
+```
+
+In alto a destra, è calcolato il coefficiente di __correlazione__ (per le variabili quantitative) o l'__indice di Cramér__ (per le variabili qualitative).
+
+```{r second_sidebar}
+
+# Input utente: prima e seconda variabile per calcolo correlazione/associazione
+
+selectInput("first_var", "Selezionare la prima variabile:", choices = names(telco), 
+            selected = "Addebito.mensile")
+selectInput("second_var", "Selezionare la seconda variabile:", choices = names(telco),
+            selected = "Durata.del.rapporto")
+
+```
+
+N.B: l'indice è fornito solo se calcolato tra variabili dello stesso gruppo e dello stesso tipo.
+
+## Row {data-height=100}
+
+### Numero di osservazioni
+```{r total_obs}
+flexdashboard::renderValueBox({
+  flexdashboard::valueBox(value = tags$p("7032", style = "font-size: 80%;"),
+                          caption = tags$p("Totale osservazioni", style = "font-size: 80%;"),
+                          icon = "fa-globe", color = "purple")
+})
+```
+
+### Variabili quantitative
+```{r quant_vars}
+flexdashboard::renderValueBox({
+  flexdashboard::valueBox(value = tags$p("3", style = "font-size: 80%;"),
+                          caption = tags$p("Variabili quantitative", style = "font-size: 80%;"),
+                          icon = "fa-list-ol", color = "olive")
+})
+```
+
+### Variabili qualitative
+```{r qual_vars}
+flexdashboard::renderValueBox({
+  flexdashboard::valueBox(value = tags$p("17", style = "font-size: 80%;"),
+                          caption = tags$p("Variabili qualitative", style = "font-size: 80%;"),
+                          icon = "fa-list-ol", color = "blue")
+})
+```
+
+### Correlazione
+```{r correlation}
+flexdashboard::renderValueBox({
+  if ((input$first_var == "Addebito.totale" & 
+      input$second_var == "Addebito.mensile")|(input$first_var == "Addebito.mensile" &
+                                               input$second_var == "Addebito.totale")){
+    flexdashboard::valueBox(value = 0.65, icon = "fa-link", color = "orange")
+  } else if((input$first_var == "Addebito.totale" & 
+             input$second_var == "Durata.del.rapporto")|
+            (input$first_var =="Durata.del.rapporto" & 
+             input$second_var == "Addebito.totale")){
+    flexdashboard::valueBox(value = 0.83, icon = "fa-link", color = "red")
+
+  } else if ((input$first_var == "Addebito.mensile" & 
+             input$second_var == "Durata.del.rapporto")|
+            (input$first_var =="Durata.del.rapporto" & 
+             input$second_var == "Addebito.mensile")) {
+    flexdashboard::valueBox(value = 0.25, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Anziano.a" & 
+             input$second_var == "Sesso")|
+            (input$first_var =="Sesso" & 
+             input$second_var == "Anziano.a")) {
+    flexdashboard::valueBox(value = 0.002, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Anziano.a" & 
+             input$second_var == "Persone.a.carico")|
+            (input$first_var =="Persone.a.carico" & 
+             input$second_var == "Anziano.a")) {
+    flexdashboard::valueBox(value = 0.21, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Anziano.a" & 
+             input$second_var == "Partner")|
+            (input$first_var =="Partner" & 
+             input$second_var == "Anziano.a")) {
+    flexdashboard::valueBox(value = 0.02, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Sesso" & 
+             input$second_var == "Partner")|
+            (input$first_var =="Partner" & 
+             input$second_var == "Sesso")) {
+    flexdashboard::valueBox(value = 0.001, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Sesso" & 
+             input$second_var == "Persone.a.carico")|
+            (input$first_var =="Persone.a.carico" & 
+             input$second_var == "Sesso")) {
+    flexdashboard::valueBox(value = 0.01, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Persone.carico" & 
+             input$second_var == "Partner")|
+            (input$first_var =="Partner" & 
+             input$second_var == "Persone.a.carico")) {
+    flexdashboard::valueBox(value = 0.45, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.03, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.03, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.26, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.44, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.19, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Backup.online")|
+            (input$first_var =="Backup.online" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.27, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Protezione.device")|
+            (input$first_var =="Protezione.device" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.40, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "Assistenza.tecnica")|
+            (input$first_var =="Assistenza.tecnica" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.28, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingMovies" & 
+             input$second_var == "StreamingTV")|
+            (input$first_var =="StreamingTV" & 
+             input$second_var == "StreamingMovies")) {
+    flexdashboard::valueBox(value = 0.53, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.021, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.26, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.44, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.17, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Backup.online")|
+            (input$first_var =="Backup.online" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.28, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Protezione.device")|
+            (input$first_var =="Protezione.device" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.39, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "StreamingTV" & 
+             input$second_var == "Assistenza.tecnica")|
+            (input$first_var =="Assistenza.tecnica" & 
+             input$second_var == "StreamingTV")) {
+    flexdashboard::valueBox(value = 0.28, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.09, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.10, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.39, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.35, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Backup.online")|
+            (input$first_var =="Backup.online" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.29, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Protezione.device")|
+            (input$first_var =="Protezione.device" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.33, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Assistenza.tecnica" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Assistenza.tecnica")) {
+    flexdashboard::valueBox(value = 0.09, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Protezione.device" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Protezione.device")) {
+    flexdashboard::valueBox(value = 0.07, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Protezione.device" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "Protezione.device")) {
+    flexdashboard::valueBox(value = 0.20, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Protezione.device" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "Protezione.device")) {
+    flexdashboard::valueBox(value = 0.38, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Protezione.device" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "Protezione.device")) {
+    flexdashboard::valueBox(value = 0.27, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Protezione.device" & 
+             input$second_var == "Backup.online")|
+            (input$first_var =="Backup.online" & 
+             input$second_var == "Protezione.device")) {
+    flexdashboard::valueBox(value = 0.30, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Backup.online" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Backup.online")) {
+    flexdashboard::valueBox(value = 0.05, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Backup.online" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var == "Linee.multiple" & 
+             input$second_var == "Backup.online")) {
+    flexdashboard::valueBox(value = 0.20, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Backup.online" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "Backup.online")) {
+    flexdashboard::valueBox(value = 0.38, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Backup.online" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "Backup.online")) {
+    flexdashboard::valueBox(value = 0.28, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Sicurezza.online" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Sicurezza.online")) {
+    flexdashboard::valueBox(value = 0.09, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Sicurezza.online" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "Sicurezza.online")) {
+    flexdashboard::valueBox(value = 0.10, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Sicurezza.online" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "Sicurezza.online")) {
+    flexdashboard::valueBox(value = 0.39, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Servizio.Internet" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Servizio.Internet")) {
+    flexdashboard::valueBox(value = 0.45, icon = "fa-link", color = "yellow")
+  } else if ((input$first_var == "Servizio.Internet" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "Servizio.Internet")) {
+    flexdashboard::valueBox(value = 0.37, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Linee.multiple" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Linee.multiple")) {
+    flexdashboard::valueBox(value = 0.28, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Sesso")|
+            (input$first_var =="Sesso" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.008, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Anziano.a")|
+            (input$first_var =="Anziano.a" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.15, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Partner")|
+            (input$first_var =="Partner" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.15, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Persone.a.carico")|
+            (input$first_var =="Persone.a.carico" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.16, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Metodo.di.pagamento")|
+            (input$first_var =="Metodo.di.pagamento" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.30, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Fatturazione.elettronica")|
+            (input$first_var =="Fatturazione.elettronica" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.19, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Termine.del.contratto")|
+            (input$first_var =="Termine.del.contratto" & 
+             input$second_var == "Churn")) {
+    flexdashboard::valueBox(value = 0.41, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Metodo.di.pagamento" & 
+             input$second_var == "Termine.del.contratto")|
+            (input$first_var =="Termine.del.contratto" & 
+             input$second_var == "Metodo.di.pagamento")) {
+    flexdashboard::valueBox(value = 0.26, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Metodo.di.pagamento" & 
+             input$second_var == "Fatturazione.elettronica")|
+            (input$first_var =="Fatturazione.elettronica" & 
+             input$second_var == "Metodo.di.pagamento")) {
+    flexdashboard::valueBox(value = 0.24, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Fatturazione.elettronica" & 
+             input$second_var == "Termine.del.contratto")|
+            (input$first_var =="Termine.del.contratto" & 
+             input$second_var == "Fatturazione.elettronica")){
+    flexdashboard::valueBox(value = 0.18, icon = "fa-link", color = "green")
+  } else if (input$first_var == input$second_var){
+        flexdashboard::valueBox(value = 1, icon = "fa-link", color = "green")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.01, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Linee.multiple")|
+            (input$first_var =="Linee.multiple" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.04, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Servizio.telefonico")|
+            (input$first_var =="Servizio.telefonico" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.01, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Servizio.Internet")|
+            (input$first_var =="Servizio.Internet" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.32, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.17, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Sicurezza.online")|
+            (input$first_var =="Sicurezza.online" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.08, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Protezione.device")|
+            (input$first_var =="Protezione.device" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.07, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "Assistenza.tecnica")|
+            (input$first_var =="Assistenza.tecnica" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.16, icon = "fa-link", color = "orange")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "StreamingTV")|
+            (input$first_var =="StreamingTV" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.06, icon = "fa-link", color = "red")
+  } else if ((input$first_var == "Churn" & 
+             input$second_var == "StreamingMovies")|
+            (input$first_var =="StreamingMovies" & 
+             input$second_var == "Churn")){
+    flexdashboard::valueBox(value = 0.08, icon = "fa-link", color = "red")
+  } else {
+    print("Non disponibile")
+  }
+})
+
+```
+
+## Row {.tabset}
+
+### Variabili esplicative
+
+```{r barplotXY}
+# Definizione dei colori per i diagrammi a barre 
+lista_colori = list(c("palevioletred1", "skyblue1"),
+                    c("palevioletred1", "skyblue1", "darkolivegreen3"),
+                    c("palevioletred1", "skyblue1", 
+                      "darkolivegreen3", "goldenrod3" ))
+
+# Funzione per creare diagrammi a barre in una griglia
+barplot <- function(data, var, x_label, y_label = c("Frequenza (%)", NULL),
+                    colori = c(lista_colori[[1]], lista_colori[[2]],
+                                     lista_colori[[3]]), 
+                    ydist = 90, xdist = 1.5){      
+  plot <- data %>%
+   ggplot(aes(x = {{var}}, fill = {{var}})) +
+   theme_minimal() +
+   geom_bar(aes(y = ((..count..)/sum(..count..)) * 100)) +
+   scale_fill_manual(values = colori) +
+   scale_y_continuous(expand = c(0,0), 
+                      limits = c(0, 100)) +
+   labs(y = y_label,
+        x = "") +
+   theme(axis.text = element_text(family = "Rockwell"), 
+         axis.title.y = element_text(family = "Times New Roman", 
+                                  face = "bold"),
+         legend.position = "none") +
+   annotate("text", label = x_label, x = xdist, y = ydist, size = 4)
+   
+  ggplotly(plot)
+}
+
+
+# Griglia di diagrammi a barre semplici del blocco demografico 
+sesso_barplot <- barplot(telco, Sesso, "Sesso")
+anziani_barplot <- barplot(telco, Anziano.a, "Anziano/a", NULL)
+dependents_barplot <- barplot(telco, Persone.a.carico, "Soggetti a carico")
+partner_barplot <- barplot(telco, Partner, "Partner", NULL)
+Demografico <- subplot(sesso_barplot, anziani_barplot, dependents_barplot, partner_barplot, 
+                       nrows = 2, titleX = T, shareY = T)
+
+# Griglia diagrammi a barre semplici per il blocco delle variabili relative ai servizi
+barplot_telefonia <- barplot(telco, Servizio.telefonico, "Servizio telefonico", ydist = 95)
+barplot_lineemultiple <- barplot(telco, Linee.multiple, "Linee multiple", NULL)
+barplot_internet <- barplot(telco, Servizio.Internet, "Servizio Internet", 
+                            colori = lista_colori[[2]], xdist = 2)
+barplot_sicurezza <- barplot(telco, Sicurezza.online, "Sicurezza online")
+barplot_backup <- barplot(telco, Backup.online, "Backup online", NULL)
+barplot_protezione <- barplot(telco, Protezione.device, "Protezione device", NULL)
+barplot_assistenza <- barplot(telco, Assistenza.tecnica, "Assistenza tecnica")
+barplot_tv <- barplot(telco, StreamingTV, "Streaming TV", NULL)
+barplot_movies <- barplot(telco, StreamingMovies, "Streaming film", NULL)
+Servizi <- subplot(barplot_telefonia, barplot_lineemultiple, barplot_internet,
+          barplot_sicurezza, barplot_backup, barplot_protezione,
+          barplot_assistenza, barplot_tv, barplot_movies, nrows = 3, titleX = T, shareY = T)
+
+# Funzione diagramma a barre impilate
+stacked_barplot <- function(data, var,  fill, x_label = NULL, y_label = c("Frequenza (%)", NULL))
+{
+  plot <- data %>%
+    ggplot(aes(x = {{var}}, fill = {{fill}})) +
+    geom_bar(aes(y = ..count..), position = "fill") +
+    theme_classic() +
+    scale_y_continuous(expand = c(0,0), 
+                       labels = percent_format(suffix = NULL)) +
+    labs(y = y_label, x = x_label, fill = "Churn") +
+    theme(axis.text = element_text(family = "Rockwell"), 
+          axis.title.x = element_text(size = 11),
+          axis.title.y = element_text(family = "Times New Roman", 
+                                    face = "bold"),
+          legend.position = "none")
+
+  ggplotly(plot)
+}
+
+# Griglia a 4 dei diagrammi a barre impilate nel blocco demografico
+sesso_by_churn <- stacked_barplot(telco, Sesso, Churn, "Sesso")
+anziani_by_churn <- stacked_barplot(telco, Anziano.a, Churn, "Anziano/a", y_label = NULL)
+partner_by_churn <- stacked_barplot(telco, Partner, Churn, "Partner")
+dependents_by_churn <- stacked_barplot(telco, Persone.a.carico, Churn, "Soggetti a carico",
+                                       y_label = NULL)
+demografico_churn <- subplot(sesso_by_churn, anziani_by_churn, partner_by_churn,                                                 dependents_by_churn, titleX = T, shareY = T, nrows = 1)
+
+# Diagrammi a barre impilate per le variabili relative ai servizi
+telefono_by_churn <- stacked_barplot(telco, Servizio.telefonico, Churn)
+lineemultiple_by_churn <- stacked_barplot(telco, Linee.multiple, Churn, NULL)
+internet_by_churn <- stacked_barplot(telco, Servizio.Internet, Churn, NULL)
+sicurezza_by_churn <- stacked_barplot(telco, Sicurezza.online, Churn)
+backup_by_churn <- stacked_barplot(telco, Backup.online, Churn, "Backup online")
+protezione_by_churn <- stacked_barplot(telco, Protezione.device, Churn, "Protezione device",
+                                       y_label = NULL)
+assistenza_by_churn <- stacked_barplot(telco, Assistenza.tecnica, Churn, "Assistenza tecnica")
+tv_by_churn <- stacked_barplot(telco, StreamingTV, Churn, "Streaming TV", NULL)
+movie_by_churn <- stacked_barplot(telco, StreamingMovies, Churn, "Streaming film", NULL)
+servizi_churn <- subplot(telefono_by_churn, lineemultiple_by_churn, internet_by_churn,
+                         sicurezza_by_churn, backup_by_churn, protezione_by_churn,
+                         assistenza_by_churn, tv_by_churn, nrows = 2, titleX = T,
+                         shareY = T, margin = 0.06)
+
+ # Griglia di istogrammi semplici per il blocco di variabili account
+istogramma_semplice <- function(data, xvar, bin_width, limits, xlabel, xdist){
+   plot <- data %>%
+    ggplot(aes(x = {{xvar}})) +
+    geom_histogram(binwidth = bin_width, color= "darkblue", fill= "lightblue") +
+    theme_classic() +
+    scale_y_continuous(expand = c(0,0), limits = limits) +
+    scale_x_continuous(expand = c(0,0)) +
+    labs(y = "Frequenza", x = "") +
+    theme(axis.text = element_text(family = "Rockwell"), 
+          axis.title.y = element_text(family = "Times New Roman", 
+                                    face = "bold")) +
+   annotate("text", label = xlabel, x = xdist, y = 600, size = 4)
+  
+  ggplotly(plot)
+  
+}
+  
+  tenure_hist <- istogramma_semplice(telco, Durata.del.rapporto, 1, c(0,700), 
+                                   "Durata del rapporto (in mesi)", xdist = 40)
+addebito_mensile_hist <- istogramma_semplice(telco, Addebito.mensile, 2, NULL, 
+                                             "Addebito mensile (in dollari)", xdist = 70)
+addebito_totale_hist <- istogramma_semplice(telco, Addebito.totale, 100, c(0,700), 
+                                            "Addebito totale (in dollari)", xdist = 4500)
+Account <- subplot(tenure_hist, addebito_totale_hist, addebito_mensile_hist, nrows = 2,
+                   titleX = T, shareY = T)
+
+lista_bar_chart <- list(`Demografico` = Demografico, `Servizi` = Servizi, `Account` = Account)
+
+# Funzione per creare istogramma congiunto
+istogramma_condizionato <- function(data, xvar, fill, color, bin_width, xlab, ylab, limits, xdist, ydist = 400){
+  
+  plot <- data %>%
+    ggplot(aes(x = {{xvar}}, fill = {{fill}}, color = {{color}})) +
+    geom_histogram(binwidth = bin_width,  position = "identity", alpha = 0.5) +
+    theme_classic() +
+    scale_y_continuous(expand = c(0,0), limits = limits) +
+    scale_x_continuous(expand = c(0,0)) +
+    labs(y = ylab, x = "") +
+    theme(axis.text = element_text(family = "Rockwell"), 
+          axis.title.y = element_text(family = "Times New Roman", 
+                                    face = "bold"),
+          legend.position = "none") +
+    annotate("text", label = xlab, x = xdist, y = ydist, size = 4)
+
+  ggplotly(plot)
+}
+
+# Griglia istogrammi condizionati blocco account
+tenure_by_churn_hist <- istogramma_condizionato(telco, Durata.del.rapporto, Churn, Churn, 1,
+                        "Durata del rapporto (in mesi)", c(0,500), ylab = "Frequenza", xdist = 40)
+
+
+addebitomensile_by_churn_hist <- istogramma_condizionato(telco, Addebito.mensile, Churn, 
+                                                        Churn, 2,
+                                                        "Addebito mensile (in dollari)", 
+                                                        c(0,300), xdist = 70,  
+                                                        ylab = "Frequenza",
+                                                        ydist = 250)
+addebitototale_by_churn_hist <- istogramma_condizionato(telco, Addebito.totale, Churn, 
+                                                        Churn, 100, ydist = 350,
+                                                        xlab = "Addebito totale (in dollari)",
+                                                        c(0,450), ylab = "Frequenza", xdist = 4500)
+account_churn <- subplot(tenure_by_churn_hist, addebitototale_by_churn_hist,                                     addebitomensile_by_churn_hist, nrows = 2, shareY = T, titleX = T)
+
+# Grafico reattivo all'input dell'utente
+plot_bar_chart <- reactive({
+  plot <- lista_bar_chart[[input$gruppovar]]
+  return(plot)
+})
+
+renderPlotly({
+  if (input$gruppovar == "Demografico" & input$churn == TRUE) {
+    demografico_churn
+  } else if (input$gruppovar == "Servizi" & input$churn == TRUE){
+    servizi_churn
+  } else if (input$gruppovar == "Account" & input$churn == TRUE) {
+    account_churn
+  } else {
+    plot_bar_chart()
+  }
+})
+
+```
+
+
+### Variabile dipendente
+
+```{r barplotY}
+y_plot <- telco %>%
+  ggplot(aes(x = Churn, fill = Churn)) +
+  theme_minimal() +
+  geom_bar(aes(y = ((..count..)/sum(..count..)) * 100)) +
+  scale_fill_manual(values = c("orangered", "royalblue1")) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, 100), ) +
+  labs(y = "Frequenza (%)", x = "Abbandono del cliente") +
+  theme(axis.text = element_text(family = "Rockwell"), 
+        axis.title = element_text(family = "Times New Roman", 
+                                  face = "bold"),
+        legend.position = "none") 
+
+ggplotly(y_plot)
+```
+
+
+# Cluster Analysis {data-icon="fa-users" data-navmenu="Analisi Esplorativa"}
+
+## Column {.sidebar} 
+La Cluster Analysis è una tecnica che permette di identificare dei segmenti all'interno della clientela, omogenei al loro interno ed eterogenei fra loro. Poichè i dati hanno natura mista, l'algoritmo scelto è il __k-prototypes__, una combinazione pesata di k-means e k-modes, che fissa in anticipo il numero di cluster da trovare.
+
+```{r ca_sidebar}
+# Input utente: numero di cluster
+sliderInput("k", "Selezionare un numero di cluster:", min = 2, max = 10, value = 6)
+```
+
+L'ouput è il profilo dei cluster per 4 variabili: il Churn, il termine contrattuale, la durata del rapporto e l'addebito mensile. Per visualizzarlo bisogna attendere una manciata di secondi, il tempo computazionale necessario per l'algoritmo.
+
+## Row
+
+### Profili dei cluster
+```{r cluster_profile}
+
+# Creazione della variabile Totale Servizi
+telco_servizi <- telco %>%
+  select(9:14)
+
+telco_servizi_recoded <- telco_servizi %>%                
+  mutate_at(.vars = 1:6, .funs = ~fct_recode(., "1" = "Si", "0" = "No")) %>%
+  mutate_if(is.factor, as.character) %>%
+  mutate_if(is.character, as.numeric)
+
+marginali_riga <- as.tibble(rowSums(telco_servizi_recoded)) 
+telco_for_clustering <- telco %>%
+  select(Churn, Persone.a.carico, Sesso, Partner, Durata.del.rapporto, Anziano.a, Servizio.telefonico, 
+         Servizio.Internet, Linee.multiple, Fatturazione.elettronica, 
+         Termine.del.contratto, Addebito.mensile, Metodo.di.pagamento)
+telco_for_clustering <- cbind(telco_for_clustering, TotaleServizi = marginali_riga)
+telco_for_clustering <- telco_for_clustering %>%
+  mutate(Totale.servizi = value) %>%
+  select(-14)
+
+set.seed(123)
+
+# Costruzione dei profili per il numero k scelto
+cluster_profiles <- reactive({
+  
+  k_proto <- kproto(telco_for_clustering, k = input$k, nstart = 5)
+
+  # combinare gruppo di appartenenza ad ogni osservazione
+  n_cluster <- k_proto$cluster
+  telco_for_clustering <- cbind(telco_for_clustering, Cluster = n_cluster)
+
+  # costruzione griglia dei profili delle variabili per cluster
+  profilo_var_qualitative <- function(data, var, group, fill, xlab, ylab){
+    plot <- data %>%
+      group_by({{group}}) %>%
+      count({{var}}) %>%
+      mutate(fr.relat = n/sum(n)) %>%
+      ggplot(aes(x = {{var}}, y = fr.relat, fill = as.factor({{fill}}))) +
+      geom_col(position = "dodge") +
+      theme_classic() +
+      scale_y_continuous(expand = c(0,0), limits = c(0,1), 
+                         labels = percent_format(suffix = NULL)) +
+      labs(y = ylab, x = xlab) +
+      guides(fill = guide_legend(title = "Cluster")) +
+      scale_fill_manual(values = c("palevioletred1", "skyblue1", 
+                                   "darkolivegreen3", "goldenrod3",
+                                   "antiquewhite4", "olivedrab1",
+                                   "steelblue4", "sienna1", "thistle", "gray88")) +
+      theme(axis.text = element_text(family = "Rockwell"), 
+            axis.title = element_text(family = "Times New Roman", 
+                                      face = "bold"), 
+            legend.position = "none")
+    
+    ggplotly(plot)
+}
+
+  churn_cluster <- profilo_var_qualitative(telco_for_clustering, Churn, Cluster, Cluster,
+                                           "Churn", "Frequenza (%)")
+  termine_cluster <- profilo_var_qualitative(telco_for_clustering, Termine.del.contratto,
+                                             Cluster, Cluster, "Termine del contratto",
+                                             NULL)
+
+  profilo_var_quantitative <- function(data, yvar, ylab, limits){
+    plot<- data %>%
+      ggplot(aes(x = Cluster, y = {{yvar}}, group = Cluster, fill = as.factor(Cluster)))+
+      geom_boxplot() +
+      theme_classic() +
+      labs(y = ylab) +
+      scale_y_continuous(expand = c(0,0),
+                         limits = limits) +
+      scale_x_continuous(breaks = c(1:6)) +
+      guides(fill = guide_legend(title = "Cluster")) +
+      scale_fill_manual(values = c("palevioletred1", "skyblue1", 
+                                   "darkolivegreen3", "goldenrod3",
+                                   "antiquewhite4", "olivedrab1",
+                                   "steelblue4", "sienna1", "thistle", "gray88")) +
+      theme(axis.text = element_text(family = "Rockwell"), 
+            axis.title = element_text(family = "Times New Roman", 
+                                    face = "bold"), 
+            legend.position = "none")
+    
+    ggplotly(plot)
+}
+
+  tenure_cluster <- profilo_var_quantitative(telco_for_clustering, Durata.del.rapporto, 
+                                             "Durata del rapporto", c(0,80))
+  addebito_cluster <- profilo_var_quantitative(telco_for_clustering, Addebito.mensile, 
+                                               "Addebito mensile", c(0,120))
+  subplot(churn_cluster, termine_cluster, 
+          tenure_cluster, addebito_cluster, nrows = 2, shareX = F, shareY = F, 
+          margin = 0.05, titleY = T, titleX = T)
+})
+
+# Output profili cluster
+renderPlotly({
+  cluster_profiles()
+})
+
+```
+
+
+# Churn Analysis {data-icon="fa-coins" data-orientation=column}
+
+## Column {.sidebar}
+
+Un modello predittivo del Churn si traduce nella costruzione di un __classificatore binario__. Nella parte centrale, dopo allenamento tramite cross-validation per ottimizzarne i parametri, sono state confrontate le performance di 12 classificatori sul test set. Di default, è selezionato la Support Vector Machine, il modello considerato come il migliore nel caso in esame.
+
+```{r model_sidebar}
+
+# Input per performance modello
+selectInput("model", "Selezionare un modello:", 
+               choices = c("Regressione logistica ridge", "Regressione logistica lasso", 
+                           "Regressione logistica elnet", 
+                           "Albero di classificazione Gini", 
+                           "Albero di classificazione Entropy", "Random Forest", 
+                           "AdaBoost", "LogitBoost", "SVM lineare", "SVM polinomiale", 
+                           "SVM radiale" ,"Rete Neurale Artificiale"), 
+                selected = "SVM lineare")
+
+```
+
+A destra, sono riportati altre misure più marginali (in %). Tutti gli indici sono compresi tra 0 ed 1. Il colore è intuitivamente legato al raggiungimento del valore ideale (1).
+Per maggiori dettagli circa il calcolo degli indicatori, basta visitare la sezione [Note tecniche].
+
+## Row
+
+### Comparazione performance
+```{r auc_plot}
+
+# DataFrame con dati presi dall'analisi statistica effettuata
+AUC <- c(0.8383, 0.8391, 0.8394, 0.8058, 0.8064, 0.8320, 0.8419, 0.7989, 0.8366, 0.8369, 
+         0.8384, 0.8376)
+Sensibilita <- c(0.7623, 0.7666, 0.7645, 0.7730, 0.7623, 0.7173, 0.7709, 0.7645, 0.7195, 
+                 0.7131, 0.6981, 0.7580)
+Specificita <- c(0.7380, 0.7372, 0.7411, 0.7411, 0.7550, 0.7783, 0.7465, 0.7318, 0.7930, 
+                 0.7868, 0.8062, 0.7395)
+df <- as.data.frame(cbind(AUC, Sensibilita, Specificita))
+df$names <- c("Regressione logistica ridge", "Regressione logistica lasso", 
+                  "Regressione logistica elnet", "Albero di classificazione Gini", 
+                  "Albero di classificazione Entropy", "Random Forest", "AdaBoost", 
+                  "LogitBoost", "SVM lineare", "SVM polinomiale", "SVM radiale" ,
+                  "Rete Neurale Artificiale")
+df <- pivot_longer(df, cols = 1:3, names_to = "indici", values_to = "value")
+
+# Output Diagramma a barre orizzontale
+renderPlotly({
+plot <- ggplot(df, aes(x = names, y = value, fill = indici)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +  
+  scale_fill_discrete(name = NULL) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = NULL, y = "Indici") +
+  theme(axis.text = element_text(family = "Rockwell"), 
+        axis.title = element_text(family = "Times New Roman", 
+                                  face = "bold")) +
+  coord_flip()
+
+ggplotly(plot)
+
+})
+
+```
+
+## Column {data-width=150}
+
+### Accuratezza
+```{r accuracy}
+
+# DataFrame con dati presi dall'analisi statistica
+accuracy <- c(0.7445, 0.7450, 0.7473, 0.7946, 0.7570, 0.7621, 0.7530, 0.7405, 0.7735, 
+              0.7672, 0.7775, 0.7445)
+ppv <- c(0.5130, 0.5136, 0.5166, 0.5194, 0.5298, 0.5395, 0.5240, 0.5078, 0.5572, 0.5477,
+         0.5660, 0.5130)
+npv <- c(0.8956, 0.8972, 0.8968, 0.9002, 0.8977, 0.8838, 0.9000, 0.8956, 0.8865, 0.8834, 
+         0.8806, 0.8941)
+fscore <- c(0.6133, 0.6151, 0.6251, 0.6213, 0.6251, 0.6158, 0.6239, 0.6102, 0.6280, 
+            0.6195, 0.6251, 0.6119)
+kcohen <- c(0.4331, 0.4354, 0.4385, 0.4448, 0.4538, 0.4485, 0.4498, 0.4273, 0.4689, 
+            0.4560, 0.4693, 0.4318)
+df_gauges <- as.data.frame(cbind(accuracy, ppv, npv, fscore, kcohen))
+df_gauges$nomi <- c("Regressione logistica ridge", "Regressione logistica lasso", 
+                  "Regressione logistica elnet", "Albero di classificazione Gini", 
+                  "Albero di classificazione Entropy", "Random Forest", "AdaBoost", 
+                  "LogitBoost", "SVM lineare", "SVM polinomiale", "SVM radiale" ,
+                  "Rete Neurale Artificiale")
+
+# Reattività manometri 
+
+accuratezza <- reactive({
+  value <- df_gauges[df_gauges$nomi == input$model, "accuracy"]
+  gauge(value = round(value*100), min = 0, max = 100, 
+        sectors = gaugeSectors(success = c(80, 100), warning = c(60, 80),
+                               danger = c(0, 60)))
+})
+
+# Output manometri 
+renderGauge({
+  accuratezza()
+})
+```
+
+### PPV
+```{r ppv}
+ppv <- reactive({
+  value <- df_gauges[df_gauges$nomi == input$model, "ppv"]
+  gauge(value = round(value*100), min = 0, max = 100, 
+        sectors = gaugeSectors(success = c(80, 100), warning = c(60, 80),
+                               danger = c(0, 60)))
+})
+
+renderGauge({
+  ppv()
+})
+```
+
+### NPV
+```{r npv}
+npv <- reactive({
+  value <- df_gauges[df_gauges$nomi == input$model, "npv"]
+  gauge(value = round(value*100), min = 0, max = 100, 
+        sectors = gaugeSectors(success = c(80, 100), warning = c(60, 80),
+                               danger = c(0, 60)))
+})
+
+renderGauge({
+  npv()
+})
+```
+
+### F1 SCORE
+```{r f1}
+f1 <- reactive({
+  value <- df_gauges[df_gauges$nomi == input$model, "fscore"]
+  gauge(value = round(value*100), min = 0, max = 100, 
+        sectors = gaugeSectors(success = c(80, 100), warning = c(60, 80),
+                               danger = c(0, 60)))
+})
+
+renderGauge({
+  f1()
+})
+```
+
+
+# Dataset {data-icon="fa-table"}
+
+## Row
+
+### Dataset (pulito e senza dati mancanti)
+```{r}
+renderDT({
+  datatable(telco, extensions = "Buttons", 
+                  options = list(lengthMenu = list(c(10,25,50,-1), c(10,25,50)),
+                  dom = 'Blfrtip', buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                  scrollX = T, scrollY = "450px"))
+})
+```
+
+
+# Note tecniche {data-icon="fa-info-circle" data-orientation=rows}
+
+## Row
+
+### Misure di performance per un classificatore binario
+
+Le performance di un qualunque classificatore binario si può valutare partendo da una particolare matrice $2x2$, denominata __Confusion Matrix__. Ipotizzando che in colonna vi siano le classi previste dal modello e in riga le classi reali, essa assume la seguente forma:
+
+```{r confusion_matrix}
+confusion_matrix <- data.frame(`Churn` = c("TP", "FP"), `No Churn` = c("FN", "TN"))
+rownames(confusion_matrix) <- c("Churn", "No.Churn")
+
+kable(confusion_matrix) %>%
+  kable_styling(c("striped", "bordered"), font_size = 15, full_width = F)
+```
+
+Sulla diagonale principale vi sono i $TP$ (True Positives) e i $TN$ (True Negatives), ovvero le corrette previsioni che il cliente, rispettivamente, abbandoni e non abbandoni l'azienda. Sulla diagonale opposta vi sono invece i $FP$ (False Positives) e i $FN$ (False Negatives), ovvero le non corrette previsioni che il cliente, rispettivamente, abbandoni e non abbandoni l'azienda. Tutte le misure viste partono da questi 4 elementi della matrice:
+$$Accuratezza = \frac{TP+TN}{N}$$
+dove $N$ è il totale delle osservazioni. L'Accuratezza quindi rappresenta il numero di casi previsti correttamente sul totale. 
+$$Sensibilità = \frac{TP}{TP+FN}$$
+$$Specificità = \frac{TN}{TN+FP}$$
+La Sensibilità, chiamata anche Recall, misura la proporzione di casi di abbandono correttamente previsti come tali. La Specificità, invece, misura la proporzione di casi di non abbandono correttamente previsti come tali.
+$$PPV = \frac{TP}{TP+FP}$$
+$$NPV = \frac{TN}{TN+FN}$$
+Il PPV (Positive Predictive Power), chiamato anche Precisione, misura la proporzione di casi classificati come abbandoni che lo sono realmente. Il NPV (Negative Predictive Power) misura, invece, la proporzione di casi classificati come non abbandoni che lo sono realmente.
+$$F_1 score = 2\cdot\frac{Precisione\cdot Sensibilità}{Precisione+Sensibilità}$$
+L'$F_1$ score è la media armonica di Sensibilità e Precisione. Infine, l'AUC non ha una formula, ma è l'area sottesa dalla curva ROC, che si ottiene unendo i punti, con coordinate date dalla Sensibilità e dalla Specificità, per ogni soglia di assegnazione possibile. Si calcola quindi per classificatori probabilistici come la regressione logistica; più si avvicina ad 1, maggiore è la capacità del classificatore di discriminare tra le due classi. 
+
