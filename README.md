@@ -42,7 +42,7 @@ The Dashboard has 4 pages:
 3. **Dataset**, pre-processed and cleaned.
 4. **Technical Notes**, for a better understanding of measures used within the analysis.
 
-
+The Churn Analysis was performed using k-fold Cross Validation on the rebalanced dataset and maximizing the AUC (area under the ROC curve).
 
 
 
