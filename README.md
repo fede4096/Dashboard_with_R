@@ -1,5 +1,7 @@
 # DASHBOARD WITH R 
 
+A dashboard is a tool used for information management and business intelligence. Much like the dashboard of a car, data dashboards organize, store, and display important information from multiple data sources into one, easy-to-access place. Behind the scenes, a dashboard connects to your files, attachments, services and API’s, but on the surface displays all this data in the form of tables, line charts, bar charts and gauges.
+
 ## Data Source: https://www.kaggle.com/blastchar/telco-customer-churn
 "Predict behavior to retain customers. You can analyze all relevant customer data and develop focused customer retention programs." [IBM Sample Data Sets].
 
